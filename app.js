@@ -1,11 +1,4 @@
-/* app.js
-   Frontend para consumir:
-   - productos:  https://tienda-p.onrender.com/projects/api/productos/
-   - categorias: https://tienda-p.onrender.com/projects/api/categorias/
-   - movimientos: https://tienda-p.onrender.com/projects/api/movimientos/
-   - empleados: https://tienda-p.onrender.com/projects/api/empleados/
-*/
-
+/* app.js - VERSION LIMPIA SIN DEBUG */
 const API = {
   base: 'https://tienda-p.onrender.com/projects/api',
   productos: 'https://tienda-p.onrender.com/projects/api/productos/',
@@ -25,33 +18,54 @@ function qs(sel){ return document.querySelector(sel); }
 function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
 
 async function init(){
-  bindUI();
-  await Promise.all([loadProductos(), loadCategorias(), loadEmpleados(), loadMovimientos()]);
-  populateFilters();
-  renderProductosTable();
-  renderMovimientosList();
-}
-
-/* ---------- UI bindings ---------- */
-function bindUI(){
-  qs('#newMovementBtn').addEventListener('click', () => openModal());
-  qs('#closeModal').addEventListener('click', closeModal);
-  qs('#cancelModal').addEventListener('click', closeModal);
-  qs('#movementForm').addEventListener('submit', onSubmitMovement);
-  qs('#aplicarFiltros').addEventListener('click', aplicarFiltros);
-  qs('#limpiarFiltros').addEventListener('click', limpiarFiltros);
-  qs('#verMasMovimientos').addEventListener('click', () => renderMovimientosList(true));
+  console.log('🔄 Iniciando aplicación...');
+  
+  try {
+    bindUI();
+    await Promise.all([
+      loadProductos(), 
+      loadCategorias(), 
+      loadEmpleados(), 
+      loadMovimientos()
+    ]);
+    
+    populateFilters();
+    renderProductosTable();
+    renderMovimientosList();
+    
+    console.log('✅ Aplicación cargada correctamente');
+    
+  } catch (error) {
+    console.error('❌ Error en init:', error);
+    alert('Error al cargar la aplicación. Revisa la consola para más detalles.');
+  }
 }
 
 /* ---------- Fetchers ---------- */
 async function loadProductos(){
   try{
     const res = await fetch(API.productos);
-    productos = await res.json();
-    // espera un array
+    
+    if(!res.ok){
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    const data = await res.json();
+    
+    // Verificar la estructura de los datos
+    if (data.results) {
+      productos = data.results; // Si usa paginación
+    } else if (Array.isArray(data)) {
+      productos = data; // Si es array directo
+    } else {
+      productos = [data]; // Si es un solo objeto
+    }
+    
     populateProductoSelect();
+    
   }catch(err){
-    console.error('Error cargando productos', err);
+    console.error('❌ Error cargando productos:', err);
     productos = [];
   }
 }
@@ -59,10 +73,21 @@ async function loadProductos(){
 async function loadCategorias(){
   try{
     const res = await fetch(API.categorias);
-    categorias = await res.json();
-    populateCategoriaFilter();
+    
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    
+    if (data.results) {
+      categorias = data.results;
+    } else if (Array.isArray(data)) {
+      categorias = data;
+    } else {
+      categorias = [data];
+    }
+    
   }catch(err){
-    console.error('Error cargando categorias', err);
+    console.error('❌ Error cargando categorías:', err);
     categorias = [];
   }
 }
@@ -70,29 +95,52 @@ async function loadCategorias(){
 async function loadEmpleados(){
   try{
     const res = await fetch(API.empleados);
-    empleados = await res.json();
-    populateEmpleadoFilter();
-    populateEmpleadoSelect();
+    
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    
+    if (data.results) {
+      empleados = data.results;
+    } else if (Array.isArray(data)) {
+      empleados = data;
+    } else {
+      empleados = [data];
+    }
+    
   }catch(err){
-    console.error('Error cargando empleados', err);
+    console.error('❌ Error cargando empleados:', err);
     empleados = [];
   }
 }
 
 async function loadMovimientos(limit = 10){
   try{
-    // Si tu API soporta query params para limite, úsalos; si no, se asume que devuelve todos y los truncamos
     const res = await fetch(API.movimientos);
-    movimientos = await res.json();
-    // orden descendente por fecha si existe campo fecha
-    movimientos.sort((a,b) => {
-      const da = new Date(a.created_at || a.fecha || a.timestamp || a.date || 0);
-      const db = new Date(b.created_at || b.fecha || b.timestamp || b.date || 0);
-      return db - da;
-    });
-    movimientos = movimientos.slice(0, limit);
+    
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    
+    const data = await res.json();
+    
+    if (data.results) {
+      movimientos = data.results;
+    } else if (Array.isArray(data)) {
+      movimientos = data;
+    } else {
+      movimientos = [data];
+    }
+    
+    // Ordenar por fecha si existe
+    if(movimientos.length > 0 && movimientos[0].fecha_movimiento){
+      movimientos.sort((a,b) => new Date(b.fecha_movimiento) - new Date(a.fecha_movimiento));
+    }
+    
+    if (limit) {
+      movimientos = movimientos.slice(0, limit);
+    }
+    
   }catch(err){
-    console.error('Error cargando movimientos', err);
+    console.error('❌ Error cargando movimientos:', err);
     movimientos = [];
   }
 }
@@ -100,30 +148,30 @@ async function loadMovimientos(limit = 10){
 /* ---------- Renderers ---------- */
 function renderProductosTable(){
   const tbody = qs('#productosBody');
+  if(!tbody) return;
+  
   tbody.innerHTML = '';
-  const filtroCat = qs('#categoriaFilter')?.value || '';
-  const filtroEmp = qs('#empleadoFilter')?.value || '';
-
-  let list = productos.slice();
-
-  if(filtroCat) list = list.filter(p => String(p.categoria_id || p.categoria || p.categoria_id?.id || '') === filtroCat);
-  // filtro por empleado no tiene sentido aquí (productos), se deja para movimientos
-
-  for(const p of list){
+  
+  if(productos.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5">No hay productos disponibles</td></tr>';
+    return;
+  }
+  
+  for(const p of productos){
     const tr = document.createElement('tr');
     const catName = findCategoriaNombre(p);
     tr.innerHTML = `
-      <td>${escapeHtml(p.nombre || p.name || '—')}</td>
+      <td>${escapeHtml(p.nombre || '—')}</td>
       <td>${escapeHtml(catName)}</td>
-      <td>${formatMoney(p.precio)}</td>
-      <td><span class="stock-badge">${p.stock ?? 0}</span></td>
+      <td>${formatMoney(p.precio_venta)}</td>
+      <td><span class="stock-badge">${p.stock_actual ?? 0}</span></td>
       <td>
         <button class="btn" data-action="mov" data-id="${p.id}">Mover</button>
       </td>
     `;
     tbody.appendChild(tr);
   }
-
+  
   // Add handler for move buttons
   qsa('[data-action="mov"]').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -133,40 +181,48 @@ function renderProductosTable(){
   });
 }
 
-function renderMovimientosList(more=false){
+function renderMovimientosList(more = false){
   const listEl = qs('#movimientosList');
+  if(!listEl) return;
+  
   listEl.innerHTML = '';
-  // Si necesitamos mostrar más, pedimos más movimientos
-  loadMovimientos(more ? 50 : 10).then(()=>{
-    for(const m of movimientos){
-      const li = document.createElement('li');
-      li.className = 'mov-item';
-      const productoNombre = getProductNameFromMovimiento(m);
-      const tipo = (m.tipo || m.type || '').toLowerCase();
-      const signo = tipo === 'salida' ? '−' : '+';
-      const cantidad = m.cantidad ?? m.cant ?? m.quantity ?? m.qty ?? 0;
-      const empleadoNombre = getEmpleadoNombre(m);
-      const fecha = formatDate(m.created_at || m.fecha || m.timestamp || '');
+  
+  if(movimientos.length === 0){
+    listEl.innerHTML = '<li>No hay movimientos recientes</li>';
+    return;
+  }
+  
+  const displayMovimientos = more ? movimientos : movimientos.slice(0, 10);
+  
+  for(const m of displayMovimientos){
+    const li = document.createElement('li');
+    li.className = 'mov-item';
+    const productoNombre = getProductNameFromMovimiento(m);
+    const tipo = (m.tipo || '').toLowerCase();
+    const signo = tipo === 'salida' ? '−' : '+';
+    const cantidad = m.cantidad ?? 0;
+    const empleadoNombre = getEmpleadoNombre(m);
+    const fecha = formatDate(m.fecha_movimiento || m.fecha || '');
 
-      li.innerHTML = `
-        <div class="mov-left">
-          <strong>${escapeHtml(productoNombre)}</strong>
-          <span class="mov-meta">${escapeHtml(empleadoNombre)} • ${escapeHtml(m.tipo || m.type || '')} • ${escapeHtml(m.motivo || m.nota || '')}</span>
-        </div>
-        <div>
-          <div><strong>${signo}${cantidad}</strong></div>
-          <div class="mov-meta">${fecha}</div>
-        </div>
-      `;
-      listEl.appendChild(li);
-    }
-  }).catch(err => console.error(err));
+    li.innerHTML = `
+      <div class="mov-left">
+        <strong>${escapeHtml(productoNombre)}</strong>
+        <span class="mov-meta">${escapeHtml(empleadoNombre)} • ${escapeHtml(m.tipo || '')} • ${escapeHtml(m.motivo || '')}</span>
+      </div>
+      <div>
+        <div><strong>${signo}${cantidad}</strong></div>
+        <div class="mov-meta">${fecha}</div>
+      </div>
+    `;
+    listEl.appendChild(li);
+  }
 }
 
 /* ---------- Populate selects & filters ---------- */
 function populateProductoSelect(){
   const sel = qs('#productoSelect');
   if(!sel) return;
+  
   sel.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
@@ -178,7 +234,7 @@ function populateProductoSelect(){
   for(const p of productos){
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = `${p.nombre || p.name} — stock: ${p.stock ?? 0}`;
+    opt.textContent = `${p.nombre} — stock: ${p.stock_actual ?? 0}`;
     sel.appendChild(opt);
   }
 }
@@ -186,6 +242,7 @@ function populateProductoSelect(){
 function populateEmpleadoSelect(){
   const sel = qs('#empleadoSelect');
   if(!sel) return;
+  
   sel.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
@@ -197,7 +254,7 @@ function populateEmpleadoSelect(){
   for(const e of empleados){
     const opt = document.createElement('option');
     opt.value = e.id;
-    opt.textContent = `${e.nombre || e.name || e.username || 'Empleado ' + e.id}`;
+    opt.textContent = e.nombre_completo || e.nombre || 'Empleado ' + e.id;
     sel.appendChild(opt);
   }
 }
@@ -205,11 +262,12 @@ function populateEmpleadoSelect(){
 function populateCategoriaFilter(){
   const sel = qs('#categoriaFilter');
   if(!sel) return;
+  
   sel.innerHTML = '<option value="">Todas las categorías</option>';
   for(const c of categorias){
     const opt = document.createElement('option');
-    opt.value = c.id ?? c.pk ?? c.id;
-    opt.textContent = c.nombre || c.name || 'Categoría';
+    opt.value = c.id;
+    opt.textContent = c.nombre;
     sel.appendChild(opt);
   }
 }
@@ -217,11 +275,12 @@ function populateCategoriaFilter(){
 function populateEmpleadoFilter(){
   const sel = qs('#empleadoFilter');
   if(!sel) return;
+  
   sel.innerHTML = '<option value="">Todos los empleados</option>';
   for(const e of empleados){
     const opt = document.createElement('option');
     opt.value = e.id;
-    opt.textContent = e.nombre || e.name || e.username || 'Empleado ' + e.id;
+    opt.textContent = e.nombre_completo || e.nombre || 'Empleado ' + e.id;
     sel.appendChild(opt);
   }
 }
@@ -234,7 +293,11 @@ function populateFilters(){
 /* ---------- Modal control ---------- */
 function openModal(prefillProductId = null){
   qs('#movementModal').setAttribute('aria-hidden','false');
-  qs('#productoSelect').value = prefillProductId || '';
+  
+  if(prefillProductId){
+    qs('#productoSelect').value = prefillProductId;
+  }
+  
   // si no hay empleado, poner el primero
   if(empleados.length && !qs('#empleadoSelect').value){
     qs('#empleadoSelect').value = empleados[0].id;
@@ -249,6 +312,7 @@ function closeModal(){
 /* ---------- Form submit: registrar movimiento ---------- */
 async function onSubmitMovement(e){
   e.preventDefault();
+  
   const productoId = qs('#productoSelect').value;
   const empleadoId = qs('#empleadoSelect').value;
   const tipo = qs('#tipoMovimiento').value;
@@ -261,15 +325,14 @@ async function onSubmitMovement(e){
   }
 
   const payload = {
-    producto_id: productoId,
-    empleado_id: empleadoId,
-    tipo: tipo,
+    producto: productoId,
+    empleado: empleadoId,
+    tipo: tipo.toUpperCase(),
     cantidad: cantidad,
-    motivo: motivo || ''
+    motivo: motivo || 'Movimiento registrado'
   };
 
   try{
-    // 1) Crear movimiento
     const res = await fetch(API.movimientos, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -282,49 +345,18 @@ async function onSubmitMovement(e){
     }
 
     const created = await res.json();
-    console.log('Movimiento creado:', created);
 
-    // 2) Intentar actualizar stock del producto localmente en el servidor (si la API lo permite)
-    const producto = productos.find(p => String(p.id) === String(productoId));
-    if(producto){
-      let nuevoStock = Number(producto.stock ?? 0);
-      if(tipo === 'salida') nuevoStock -= cantidad;
-      else nuevoStock += cantidad;
-      if(nuevoStock < 0) nuevoStock = 0;
-
-      // Intentamos hacer PATCH a la ruta producto específico
-      try{
-        const patchUrl = API.productos + productoId + '/';
-        const patchRes = await fetch(patchUrl, {
-          method: 'PATCH',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ stock: nuevoStock })
-        });
-        if(!patchRes.ok){
-          // intentar PUT sin slash (por si la API difiere)
-          const altUrl = API.productos + productoId;
-          await fetch(altUrl, {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ stock: nuevoStock })
-          }).catch(()=>{});
-        }
-      }catch(patchErr){
-        // Si falla, no rompemos el flujo: la API podría actualizar stock automáticamente en backend
-        console.warn('No se pudo hacer PATCH de stock (no crítico):', patchErr);
-      }
-    }
-
-    // 3) Refrescar datos
+    // Refrescar datos
     await Promise.all([loadProductos(), loadMovimientos()]);
     renderProductosTable();
     renderMovimientosList();
 
     closeModal();
-    alert('Movimiento registrado correctamente.');
+    alert('✅ Movimiento registrado correctamente.');
+    
   }catch(err){
-    console.error(err);
-    alert('Error al registrar movimiento: ' + (err.message || err));
+    console.error('❌ Error al registrar movimiento:', err);
+    alert('❌ Error al registrar movimiento: ' + err.message);
   }
 }
 
@@ -339,22 +371,34 @@ function limpiarFiltros(){
   renderProductosTable();
 }
 
+/* ---------- UI bindings ---------- */
+function bindUI(){
+  qs('#newMovementBtn').addEventListener('click', () => openModal());
+  qs('#closeModal').addEventListener('click', closeModal);
+  qs('#cancelModal').addEventListener('click', closeModal);
+  qs('#movementForm').addEventListener('submit', onSubmitMovement);
+  qs('#aplicarFiltros').addEventListener('click', aplicarFiltros);
+  qs('#limpiarFiltros').addEventListener('click', limpiarFiltros);
+  qs('#verMasMovimientos').addEventListener('click', () => renderMovimientosList(true));
+}
+
 /* ---------- Helpers ---------- */
 function findCategoriaNombre(producto){
-  if(!producto) return '';
-  // intenta varios campos
-  const catId = producto.categoria_id ?? producto.categoria ?? producto.categoria_id?.id ?? null;
-  if(!catId) return producto.categoria_nombre || producto.categoriaName || '—';
-  const c = categorias.find(x => String(x.id) === String(catId) || String(x.pk) === String(catId));
-  return c ? (c.nombre || c.name) : (producto.categoria_nombre || producto.categoriaName || '—');
+  if(!producto) return '—';
+  const catId = producto.categoria;
+  if(!catId) return '—';
+  const c = categorias.find(x => x.id === catId);
+  return c ? c.nombre : '—';
 }
 
 function getProductNameFromMovimiento(m){
-  return m.producto_nombre || m.producto?.nombre || m.producto?.name || productos.find(p => String(p.id) === String(m.producto_id))?.nombre || 'Producto';
+  const producto = productos.find(p => p.id === m.producto);
+  return producto ? producto.nombre : 'Producto ' + m.producto;
 }
 
 function getEmpleadoNombre(m){
-  return m.empleado_nombre || m.empleado?.nombre || empleados.find(e => String(e.id) === String(m.empleado_id))?.nombre || 'Empleado';
+  const empleado = empleados.find(e => e.id === m.empleado);
+  return empleado ? (empleado.nombre_completo || empleado.nombre) : 'Empleado ' + m.empleado;
 }
 
 function formatMoney(val){
@@ -368,12 +412,18 @@ function formatDate(d){
   if(!d) return '';
   const dt = new Date(d);
   if(isNaN(dt)) return String(d);
-  return dt.toLocaleString('es-CO', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  return dt.toLocaleString('es-CO', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 }
 
 function escapeHtml(str){
   if(str == null) return '';
-  return String(str).replace(/[&<>"'`=\/]/g, s => {
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
-  });
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
