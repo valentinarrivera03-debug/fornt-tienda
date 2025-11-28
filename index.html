@@ -1,11 +1,112 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Inventario — Tienda</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    
+  <header class="topbar">
+    <div class="container">
+      <h1>Tienda — Control de Inventario</h1>
+      <button id="newMovementBtn" class="btn btn-primary">Registrar Movimiento</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="cards">
+      <div class="card">
+        <h2>Productos</h2>
+        <div id="productosContainer">
+          <table class="table" id="productosTable">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="productosBody">
+              <!-- llenado por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Movimientos Recientes</h2>
+        <ul id="movimientosList" class="mov-list">
+          <!-- llenado por JS -->
+        </ul>
+        <button id="verMasMovimientos" class="btn btn-ghost">Ver más</button>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Filtros rápidos</h2>
+      <div class="filters">
+        <select id="categoriaFilter">
+          <option value="">Todas las categorías</option>
+        </select>
+
+        <select id="empleadoFilter">
+          <option value="">Todos los empleados</option>
+        </select>
+
+        <button id="aplicarFiltros" class="btn">Aplicar</button>
+        <button id="limpiarFiltros" class="btn btn-ghost">Limpiar</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Registrar movimiento -->
+  <div id="movementModal" class="modal" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <h3 id="modalTitle">Registrar Movimiento</h3>
+        <button id="closeModal" class="btn-icon" aria-label="Cerrar">&times;</button>
+      </header>
+
+      <form id="movementForm" class="form">
+        <div class="form-row">
+          <label for="productoSelect">Producto</label>
+          <select id="productoSelect" required></select>
+        </div>
+
+        <div class="form-row">
+          <label for="empleadoSelect">Empleado</label>
+          <select id="empleadoSelect" required></select>
+        </div>
+
+        <div class="form-row">
+          <label for="tipoMovimiento">Tipo</label>
+          <select id="tipoMovimiento" required>
+            <option value="ingreso">Ingreso</option>
+            <option value="salida">Salida</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="cantidad">Cantidad</label>
+          <input id="cantidad" type="number" min="1" value="1" required />
+        </div>
+
+        <div class="form-row">
+          <label for="motivo">Motivo / Nota</label>
+          <input id="motivo" type="text" placeholder="Ej: Reposición, Venta, Devolución..." />
+        </div>
+
+        <footer class="modal-footer">
+          <button type="submit" class="btn btn-primary">Registrar</button>
+          <button type="button" id="cancelModal" class="btn btn-ghost">Cancelar</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
 </body>
 </html>
