@@ -22,14 +22,17 @@ async function init(){
   
   try {
     bindUI();
-    await Promise.all([
-      loadProductos(), 
-      loadCategorias(), 
-      loadEmpleados(), 
-      loadMovimientos()
-    ]);
+    
+    // Cargar datos en secuencia en lugar de Promise.all
+    await loadProductos();
+    await loadCategorias(); 
+    await loadEmpleados();
+    await loadMovimientos();
+    
+    console.log('✅ Todos los datos cargados');
     
     populateFilters();
+    populateEmpleadoSelect(); // ← AGREGAR ESTA LÍNEA EXPLÍCITAMENTE
     renderProductosTable();
     renderMovimientosList();
     
@@ -94,19 +97,28 @@ async function loadCategorias(){
 
 async function loadEmpleados(){
   try{
+    console.log('🔄 Cargando empleados...');
     const res = await fetch(API.empleados);
     
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     
     const data = await res.json();
     
-    if (data.results) {
+    // Manejar diferentes estructuras de respuesta
+    if (data.results && Array.isArray(data.results)) {
       empleados = data.results;
     } else if (Array.isArray(data)) {
       empleados = data;
-    } else {
+    } else if (data && typeof data === 'object') {
       empleados = [data];
+    } else {
+      empleados = [];
     }
+    
+    console.log('✅ Empleados cargados:', empleados.length);
+    
+    // Poblar el select inmediatamente después de cargar
+    populateEmpleadoSelect();
     
   }catch(err){
     console.error('❌ Error cargando empleados:', err);
@@ -241,9 +253,16 @@ function populateProductoSelect(){
 
 function populateEmpleadoSelect(){
   const sel = qs('#empleadoSelect');
-  if(!sel) return;
+  if(!sel) {
+    console.log('❌ No se encontró el elemento #empleadoSelect');
+    return;
+  }
+  
+  console.log('🔄 Poblando select de empleados con:', empleados.length, 'empleados');
   
   sel.innerHTML = '';
+  
+  // Opción por defecto
   const placeholder = document.createElement('option');
   placeholder.value = '';
   placeholder.textContent = 'Selecciona un empleado...';
@@ -251,12 +270,31 @@ function populateEmpleadoSelect(){
   placeholder.selected = true;
   sel.appendChild(placeholder);
 
+  if(empleados.length === 0) {
+    console.log('⚠️ No hay empleados para mostrar en el select');
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No hay empleados disponibles';
+    opt.disabled = true;
+    sel.appendChild(opt);
+    return;
+  }
+
+  // Agregar cada empleado al select
   for(const e of empleados){
     const opt = document.createElement('option');
     opt.value = e.id;
-    opt.textContent = e.nombre_completo || e.nombre || 'Empleado ' + e.id;
+    
+    // Usar nombre_completo que es el campo correcto según los logs
+    const nombre = e.nombre_completo || `Empleado ${e.id}`;
+    opt.textContent = `${nombre} (${e.codigo_empleado})`;
+    
+    console.log(`➕ Agregando empleado al select:`, {id: e.id, nombre: nombre});
     sel.appendChild(opt);
   }
+  
+  console.log('✅ Select de empleados poblado exitosamente');
+  console.log('🔍 Opciones en el select:', sel.innerHTML);
 }
 
 function populateCategoriaFilter(){
@@ -298,9 +336,13 @@ function openModal(prefillProductId = null){
     qs('#productoSelect').value = prefillProductId;
   }
   
-  // si no hay empleado, poner el primero
-  if(empleados.length && !qs('#empleadoSelect').value){
-    qs('#empleadoSelect').value = empleados[0].id;
+  // Forzar la selección del primer empleado si existe
+  if(empleados.length > 0 && qs('#empleadoSelect')){
+    const empleadoSelect = qs('#empleadoSelect');
+    if(!empleadoSelect.value && empleados[0].id){
+      empleadoSelect.value = empleados[0].id;
+      console.log('👤 Empleado seleccionado por defecto:', empleados[0].id);
+    }
   }
 }
 
@@ -324,13 +366,18 @@ async function onSubmitMovement(e){
     return;
   }
 
+
+  const tipoAPI = tipo === 'ingreso' ? 'ENTRADA' : 'SALIDA';
+
   const payload = {
     producto: productoId,
     empleado: empleadoId,
-    tipo: tipo.toUpperCase(),
+    tipo: tipoAPI, 
     cantidad: cantidad,
     motivo: motivo || 'Movimiento registrado'
   };
+
+  console.log('📤 Enviando movimiento:', payload);
 
   try{
     const res = await fetch(API.movimientos, {
@@ -345,6 +392,7 @@ async function onSubmitMovement(e){
     }
 
     const created = await res.json();
+    console.log('✅ Movimiento creado:', created);
 
     // Refrescar datos
     await Promise.all([loadProductos(), loadMovimientos()]);
