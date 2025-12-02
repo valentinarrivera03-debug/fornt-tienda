@@ -245,9 +245,6 @@ function populateProductoSelect(){
 }
 function populateEmpleadoSelect(){
   const sel = qs('#empleadoSelect');
-  if(!sel) {
-    return;
-  }
   sel.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
@@ -266,7 +263,7 @@ function populateEmpleadoSelect(){
   }
   for(const e of empleados){
     const opt = document.createElement('option');
-    opt.value = e.id;
+    opt.value = String(e.id);
     const nombre = e.nombre_completo || `Empleado ${e.id}`;
     opt.textContent = `${nombre} (${e.codigo_empleado})`;
     
