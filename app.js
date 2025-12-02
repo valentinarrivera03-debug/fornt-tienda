@@ -22,22 +22,14 @@ async function init(){
   
   try {
     bindUI();
-    
-    // Cargar datos en secuencia en lugar de Promise.all
     await loadProductos();
     await loadCategorias(); 
     await loadEmpleados();
     await loadMovimientos();
-    
-    console.log('✅ Todos los datos cargados');
-    
     populateFilters();
-    populateEmpleadoSelect(); // ← AGREGAR ESTA LÍNEA EXPLÍCITAMENTE
+    populateEmpleadoSelect();
     renderProductosTable();
     renderMovimientosList();
-    
-    console.log('✅ Aplicación cargada correctamente');
-    
   } catch (error) {
     console.error('❌ Error en init:', error);
     alert('Error al cargar la aplicación. Revisa la consola para más detalles.');
@@ -53,20 +45,15 @@ async function loadProductos(){
       const errorText = await res.text();
       throw new Error(`HTTP ${res.status}: ${errorText}`);
     }
-    
     const data = await res.json();
-    
-    // Verificar la estructura de los datos
     if (data.results) {
-      productos = data.results; // Si usa paginación
+      productos = data.results; 
     } else if (Array.isArray(data)) {
-      productos = data; // Si es array directo
+      productos = data; 
     } else {
-      productos = [data]; // Si es un solo objeto
+      productos = [data]; 
     }
-    
     populateProductoSelect();
-    
   }catch(err){
     console.error('❌ Error cargando productos:', err);
     productos = [];
@@ -76,11 +63,8 @@ async function loadProductos(){
 async function loadCategorias(){
   try{
     const res = await fetch(API.categorias);
-    
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    
     const data = await res.json();
-    
     if (data.results) {
       categorias = data.results;
     } else if (Array.isArray(data)) {
@@ -88,7 +72,6 @@ async function loadCategorias(){
     } else {
       categorias = [data];
     }
-    
   }catch(err){
     console.error('❌ Error cargando categorías:', err);
     categorias = [];
@@ -97,14 +80,9 @@ async function loadCategorias(){
 
 async function loadEmpleados(){
   try{
-    console.log('🔄 Cargando empleados...');
     const res = await fetch(API.empleados);
-    
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    
     const data = await res.json();
-    
-    // Manejar diferentes estructuras de respuesta
     if (data.results && Array.isArray(data.results)) {
       empleados = data.results;
     } else if (Array.isArray(data)) {
@@ -114,14 +92,8 @@ async function loadEmpleados(){
     } else {
       empleados = [];
     }
-    
-    console.log('✅ Empleados cargados:', empleados.length);
-    
-    // Poblar el select inmediatamente después de cargar
     populateEmpleadoSelect();
-    
   }catch(err){
-    console.error('❌ Error cargando empleados:', err);
     empleados = [];
   }
 }
@@ -129,11 +101,8 @@ async function loadEmpleados(){
 async function loadMovimientos(limit = 10){
   try{
     const res = await fetch(API.movimientos);
-    
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    
     const data = await res.json();
-    
     if (data.results) {
       movimientos = data.results;
     } else if (Array.isArray(data)) {
@@ -141,16 +110,12 @@ async function loadMovimientos(limit = 10){
     } else {
       movimientos = [data];
     }
-    
-    // Ordenar por fecha si existe
     if(movimientos.length > 0 && movimientos[0].fecha_movimiento){
       movimientos.sort((a,b) => new Date(b.fecha_movimiento) - new Date(a.fecha_movimiento));
     }
-    
     if (limit) {
       movimientos = movimientos.slice(0, limit);
     }
-    
   }catch(err){
     console.error('❌ Error cargando movimientos:', err);
     movimientos = [];
@@ -161,14 +126,11 @@ async function loadMovimientos(limit = 10){
 function renderProductosTable(){
   const tbody = qs('#productosBody');
   if(!tbody) return;
-  
   tbody.innerHTML = '';
-  
   if(productos.length === 0){
     tbody.innerHTML = '<tr><td colspan="5">No hay productos disponibles</td></tr>';
     return;
   }
-  
   for(const p of productos){
     const tr = document.createElement('tr');
     const catName = findCategoriaNombre(p);
@@ -183,8 +145,6 @@ function renderProductosTable(){
     `;
     tbody.appendChild(tr);
   }
-  
-  // Add handler for move buttons
   qsa('[data-action="mov"]').forEach(btn => {
     btn.addEventListener('click', e => {
       const id = e.currentTarget.dataset.id;
@@ -196,16 +156,12 @@ function renderProductosTable(){
 function renderMovimientosList(more = false){
   const listEl = qs('#movimientosList');
   if(!listEl) return;
-  
   listEl.innerHTML = '';
-  
   if(movimientos.length === 0){
     listEl.innerHTML = '<li>No hay movimientos recientes</li>';
     return;
   }
-  
   const displayMovimientos = more ? movimientos : movimientos.slice(0, 10);
-  
   for(const m of displayMovimientos){
     const li = document.createElement('li');
     li.className = 'mov-item';
@@ -215,7 +171,6 @@ function renderMovimientosList(more = false){
     const cantidad = m.cantidad ?? 0;
     const empleadoNombre = getEmpleadoNombre(m);
     const fecha = formatDate(m.fecha_movimiento || m.fecha || '');
-
     li.innerHTML = `
       <div class="mov-left">
         <strong>${escapeHtml(productoNombre)}</strong>
@@ -234,7 +189,6 @@ function renderMovimientosList(more = false){
 function populateProductoSelect(){
   const sel = qs('#productoSelect');
   if(!sel) return;
-  
   sel.innerHTML = '';
   const placeholder = document.createElement('option');
   placeholder.value = '';
@@ -242,7 +196,6 @@ function populateProductoSelect(){
   placeholder.disabled = true;
   placeholder.selected = true;
   sel.appendChild(placeholder);
-
   for(const p of productos){
     const opt = document.createElement('option');
     opt.value = p.id;
@@ -250,26 +203,18 @@ function populateProductoSelect(){
     sel.appendChild(opt);
   }
 }
-
 function populateEmpleadoSelect(){
   const sel = qs('#empleadoSelect');
   if(!sel) {
-    console.log('❌ No se encontró el elemento #empleadoSelect');
     return;
   }
-  
-  console.log('🔄 Poblando select de empleados con:', empleados.length, 'empleados');
-  
   sel.innerHTML = '';
-  
-  // Opción por defecto
   const placeholder = document.createElement('option');
   placeholder.value = '';
   placeholder.textContent = 'Selecciona un empleado...';
   placeholder.disabled = true;
   placeholder.selected = true;
   sel.appendChild(placeholder);
-
   if(empleados.length === 0) {
     console.log('⚠️ No hay empleados para mostrar en el select');
     const opt = document.createElement('option');
@@ -279,13 +224,9 @@ function populateEmpleadoSelect(){
     sel.appendChild(opt);
     return;
   }
-
-  // Agregar cada empleado al select
   for(const e of empleados){
     const opt = document.createElement('option');
     opt.value = e.id;
-    
-    // Usar nombre_completo que es el campo correcto según los logs
     const nombre = e.nombre_completo || `Empleado ${e.id}`;
     opt.textContent = `${nombre} (${e.codigo_empleado})`;
     
@@ -293,10 +234,7 @@ function populateEmpleadoSelect(){
     sel.appendChild(opt);
   }
   
-  console.log('✅ Select de empleados poblado exitosamente');
-  console.log('🔍 Opciones en el select:', sel.innerHTML);
 }
-
 function populateCategoriaFilter(){
   const sel = qs('#categoriaFilter');
   if(!sel) return;
@@ -309,7 +247,6 @@ function populateCategoriaFilter(){
     sel.appendChild(opt);
   }
 }
-
 function populateEmpleadoFilter(){
   const sel = qs('#empleadoFilter');
   if(!sel) return;
@@ -322,12 +259,10 @@ function populateEmpleadoFilter(){
     sel.appendChild(opt);
   }
 }
-
 function populateFilters(){
   populateCategoriaFilter();
   populateEmpleadoFilter();
 }
-
 /* ---------- Modal control ---------- */
 function openModal(prefillProductId = null){
   qs('#movementModal').setAttribute('aria-hidden','false');
@@ -335,7 +270,6 @@ function openModal(prefillProductId = null){
   if(prefillProductId){
     qs('#productoSelect').value = prefillProductId;
   }
-  
   // Forzar la selección del primer empleado si existe
   if(empleados.length > 0 && qs('#empleadoSelect')){
     const empleadoSelect = qs('#empleadoSelect');
@@ -345,30 +279,23 @@ function openModal(prefillProductId = null){
     }
   }
 }
-
 function closeModal(){
   qs('#movementModal').setAttribute('aria-hidden','true');
   qs('#movementForm').reset();
 }
-
 /* ---------- Form submit: registrar movimiento ---------- */
 async function onSubmitMovement(e){
   e.preventDefault();
-  
   const productoId = qs('#productoSelect').value;
   const empleadoId = qs('#empleadoSelect').value;
   const tipo = qs('#tipoMovimiento').value;
   const cantidad = Number(qs('#cantidad').value);
   const motivo = qs('#motivo').value;
-
   if(!productoId || !empleadoId || !tipo || !cantidad || cantidad <= 0){
     alert('Completa los campos obligatorios.');
     return;
   }
-
-
   const tipoAPI = tipo === 'ingreso' ? 'ENTRADA' : 'SALIDA';
-
   const payload = {
     producto: productoId,
     empleado: empleadoId,
@@ -376,49 +303,36 @@ async function onSubmitMovement(e){
     cantidad: cantidad,
     motivo: motivo || 'Movimiento registrado'
   };
-
-  console.log('📤 Enviando movimiento:', payload);
-
   try{
     const res = await fetch(API.movimientos, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
-
     if(!res.ok){
       const errText = await res.text();
       throw new Error('Error creando movimiento: ' + errText);
     }
-
     const created = await res.json();
-    console.log('✅ Movimiento creado:', created);
-
     // Refrescar datos
     await Promise.all([loadProductos(), loadMovimientos()]);
     renderProductosTable();
     renderMovimientosList();
-
     closeModal();
     alert('✅ Movimiento registrado correctamente.');
-    
   }catch(err){
-    console.error('❌ Error al registrar movimiento:', err);
     alert('❌ Error al registrar movimiento: ' + err.message);
   }
 }
-
 /* ---------- Filtros ---------- */
 function aplicarFiltros(){
   renderProductosTable();
 }
-
 function limpiarFiltros(){
   qs('#categoriaFilter').value = '';
   qs('#empleadoFilter').value = '';
   renderProductosTable();
 }
-
 /* ---------- UI bindings ---------- */
 function bindUI(){
   qs('#newMovementBtn').addEventListener('click', () => openModal());
@@ -429,7 +343,6 @@ function bindUI(){
   qs('#limpiarFiltros').addEventListener('click', limpiarFiltros);
   qs('#verMasMovimientos').addEventListener('click', () => renderMovimientosList(true));
 }
-
 /* ---------- Helpers ---------- */
 function findCategoriaNombre(producto){
   if(!producto) return '—';
@@ -438,24 +351,20 @@ function findCategoriaNombre(producto){
   const c = categorias.find(x => x.id === catId);
   return c ? c.nombre : '—';
 }
-
 function getProductNameFromMovimiento(m){
   const producto = productos.find(p => p.id === m.producto);
   return producto ? producto.nombre : 'Producto ' + m.producto;
 }
-
 function getEmpleadoNombre(m){
   const empleado = empleados.find(e => e.id === m.empleado);
   return empleado ? (empleado.nombre_completo || empleado.nombre) : 'Empleado ' + m.empleado;
 }
-
 function formatMoney(val){
   if(val == null || val === '') return '—';
   const num = Number(val);
   if(isNaN(num)) return String(val);
   return '$' + num.toLocaleString('es-CO');
 }
-
 function formatDate(d){
   if(!d) return '';
   const dt = new Date(d);
@@ -468,7 +377,6 @@ function formatDate(d){
     minute: '2-digit' 
   });
 }
-
 function escapeHtml(str){
   if(str == null) return '';
   const div = document.createElement('div');
