@@ -126,25 +126,65 @@ async function loadMovimientos(limit = 10){
 function renderProductosTable(){
   const tbody = qs('#productosBody');
   if(!tbody) return;
-  tbody.innerHTML = '';
+  tbody.innerHTML = ''
   if(productos.length === 0){
     tbody.innerHTML = '<tr><td colspan="5">No hay productos disponibles</td></tr>';
     return;
   }
-  for(const p of productos){
+  
+  // Obtener valores de los filtros
+  const filtroCategoria = qs('#categoriaFilter').value;
+  const filtroEmpleado = qs('#empleadoFilter').value; // Este filtro no aplica a productos
+  
+  console.log('🔍 Filtros aplicados:', {
+    categoria: filtroCategoria,
+    empleado: filtroEmpleado
+  });
+  
+  // Filtrar productos
+  let productosFiltrados = productos.filter(p => {
+    let pasaFiltro = true;
+    
+    // Filtrar por categoría (si se seleccionó una)
+    if (filtroCategoria) {
+      // IMPORTANTE: Comparar como números, no como strings
+      const categoriaProducto = parseInt(p.categoria);
+      const categoriaFiltro = parseInt(filtroCategoria);
+      pasaFiltro = pasaFiltro && (categoriaProducto === categoriaFiltro);
+      
+      if (categoriaProducto !== categoriaFiltro) {
+        console.log(`❌ Producto ${p.nombre} no pasa filtro categoría: ${categoriaProducto} !== ${categoriaFiltro}`);
+      }
+    }
+    
+    // El filtro de empleado no aplica a productos, solo a movimientos
+    // Si quisieras filtrar productos por empleado, necesitarías una relación
+    
+    return pasaFiltro;
+  });
+  
+  console.log(`📊 Productos después de filtrar: ${productosFiltrados.length} de ${productos.length}`);
+  
+  // Mostrar productos filtrados
+  for(const p of productosFiltrados){
     const tr = document.createElement('tr');
     const catName = findCategoriaNombre(p);
     tr.innerHTML = `
       <td>${escapeHtml(p.nombre || '—')}</td>
       <td>${escapeHtml(catName)}</td>
       <td>${formatMoney(p.precio_venta)}</td>
-      <td><span class="stock-badge">${p.stock_actual ?? 0}</span></td>
+      <td><span class="stock-badge ${p.stock_actual <= (p.stock_minimo || 5) ? 'stock-bajo' : ''}">${p.stock_actual ?? 0}</span></td>
       <td>
         <button class="btn" data-action="mov" data-id="${p.id}">Mover</button>
       </td>
     `;
     tbody.appendChild(tr);
   }
+  // Si no hay productos después de filtrar
+  if (productosFiltrados.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5">No hay productos que coincidan con los filtros</td></tr>';
+  }
+  // Add handler for move buttons
   qsa('[data-action="mov"]').forEach(btn => {
     btn.addEventListener('click', e => {
       const id = e.currentTarget.dataset.id;
