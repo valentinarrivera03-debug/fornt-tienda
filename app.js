@@ -280,7 +280,13 @@ function populateCategoriaFilter(){
   if(!sel) return;
   
   sel.innerHTML = '<option value="">Todas las categorías</option>';
-  for(const c of categorias){
+  
+  // Ordenar categorías por nombre
+  const categoriasOrdenadas = [...categorias].sort((a, b) => 
+    a.nombre.localeCompare(b.nombre)
+  );
+  
+  for(const c of categoriasOrdenadas){
     const opt = document.createElement('option');
     opt.value = c.id;
     opt.textContent = c.nombre;
@@ -386,10 +392,18 @@ function bindUI(){
 /* ---------- Helpers ---------- */
 function findCategoriaNombre(producto){
   if(!producto) return '—';
+  
   const catId = producto.categoria;
   if(!catId) return '—';
-  const c = categorias.find(x => x.id === catId);
-  return c ? c.nombre : '—';
+  
+  // Buscar la categoría por ID (comparar como números)
+  const c = categorias.find(x => {
+    const catIdNum = parseInt(catId);
+    const xIdNum = parseInt(x.id);
+    return catIdNum === xIdNum;
+  });
+  
+  return c ? c.nombre : `Categoría ${catId}`;
 }
 function getProductNameFromMovimiento(m){
   const producto = productos.find(p => p.id === m.producto);
